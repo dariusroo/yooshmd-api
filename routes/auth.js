@@ -39,6 +39,7 @@ router.get('/callback', async (req, res) => {
       client_secret: process.env.CLIENT_SECRET,
     });
 
+    console.log('[auth] token exchange params:', { redirect_uri: process.env.REDIRECT_URI, client_id: process.env.CLIENT_ID, code: code.slice(0,6)+'…' });
     const response = await axios.post(TOKEN_URL, params.toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
@@ -59,7 +60,7 @@ router.get('/callback', async (req, res) => {
     });
   } catch (err) {
     const detail = err.response?.data || err.message;
-    res.status(500).json({ error: 'Token exchange failed', detail });
+    res.status(500).json({ error: 'Token exchange failed', detail, redirect_uri_used: process.env.REDIRECT_URI });
   }
 });
 
