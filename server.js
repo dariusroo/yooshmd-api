@@ -8,6 +8,7 @@ const doctorsRoutes = require('./routes/doctors');
 const appointmentsRoutes = require('./routes/appointments');
 const patientsRoutes = require('./routes/patients');
 const slotsRoutes = require('./routes/slots');
+const cronRoutes = require('./routes/cron');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +46,9 @@ app.use('/api/patients', patientsRoutes);
 
 // Slot availability
 app.use('/api/slots', slotsRoutes);
+
+// Cron jobs
+app.use('/api/cron', cronRoutes);
 
 // Convenience direct routes for profiles and templates
 app.use('/api/appointment_profiles', (req, res, next) => {
