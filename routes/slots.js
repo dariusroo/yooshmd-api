@@ -11,7 +11,8 @@ const DEFAULTS = {
   profileId: 969506,       // "Initial Consultation"
   duration: 30,            // minutes per slot
   startHour: 8,            // office opens 8:00 AM
-  endHour: 18,             // office closes 6:00 PM
+  endHour: 18,             // office closes 6:00 PM (weekdays)
+  satEndHour: 14,          // office closes 2:00 PM (Saturdays)
   timezone: 'America/Los_Angeles',
 };
 
@@ -80,6 +81,58 @@ router.get('/', drchronoAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/slots/available-dates?year=YYYY&month=MM
+ * Returns array of dates in the month that have at least one available slot.
+ */
+router.get('/available-dates', drchronoAuth, async (req, res) => {
+  const year = parseInt(req.query.year || new Date().getFullYear(), 10);
+  const month = parseInt(req.query.month || new Date().getMonth() + 1, 10);
+  const doctor = req.query.doctor || DEFAULTS.doctor;
+  const office = req.query.office || DEFAULTS.office;
+  const duration = parseInt(req.query.duration || DEFAULTS.duration, 10);
+
+  const start = `${year}-${pad(month)}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+  try {
+    // Fetch all appointments for the month in one call
+    let bookedByDate = {};
+    try {
+      const apptResp = await req.drchrono.get('/appointments', {
+        params: { date_range: `${start}/${end}`, doctor, office },
+      });
+      const appts = (apptResp.data.results || []).filter(
+        (a) => !a.deleted_flag && a.status !== 'Cancelled'
+      );
+      for (const a of appts) {
+        const d = a.scheduled_time.split('T')[0];
+        if (!bookedByDate[d]) bookedByDate[d] = [];
+        const s = new Date(a.scheduled_time);
+        bookedByDate[d].push({ start: s, end: new Date(s.getTime() + a.duration * 60000) });
+      }
+    } catch (e) {
+      console.warn('Could not fetch appointments for available-dates:', e.message);
+    }
+
+    // Check each day in the month
+    const availableDates = [];
+    for (let d = 1; d <= lastDay; d++) {
+      const date = `${year}-${pad(month)}-${pad(d)}`;
+      const dow = new Date(date).getDay();
+      if (dow === 0) continue; // skip Sundays
+      const slots = generateSlots(date, duration, bookedByDate[date] || []);
+      if (slots.length > 0) availableDates.push(date);
+    }
+
+    res.json({ year, month, availableDates });
+  } catch (err) {
+    const status = err.response?.status || 500;
+    res.status(status).json({ error: err.response?.data || err.message });
+  }
+});
+
 // GET /api/appointment_profiles — proxy to DrChrono
 router.get('/profiles', drchronoAuth, async (req, res) => {
   try {
@@ -107,11 +160,10 @@ router.get('/templates', drchronoAuth, async (req, res) => {
 function generateSlots(date, duration, bookedIntervals) {
   const slots = [];
   const now = new Date();
+  const isSaturday = new Date(date).getDay() === 6;
 
-  // Build start/end boundaries in Pacific time by constructing naive local strings
-  // DrChrono stores scheduled_time in the practice timezone (US/Pacific)
   const open = new Date(`${date}T${pad(DEFAULTS.startHour)}:00:00`);
-  const close = new Date(`${date}T${pad(DEFAULTS.endHour)}:00:00`);
+  const close = new Date(`${date}T${pad(isSaturday ? DEFAULTS.satEndHour : DEFAULTS.endHour)}:00:00`);
 
   let cursor = new Date(open);
 
