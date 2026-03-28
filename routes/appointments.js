@@ -57,13 +57,22 @@ router.post('/', drchronoAuth, async (req, res) => {
       const d = new Date(appt.scheduled_time);
       const date = d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
       const time = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
-      await sendBookingNotification({
-        patientName: req.body._patientName || `Patient #${appt.patient}`,
-        date,
-        time,
-        email: req.body._patientEmail || '',
-        phone: req.body._patientPhone || '',
-      });
+
+      // Fetch patient details directly from DrChrono for accurate info
+      let patientName = `Patient #${appt.patient}`;
+      let patientEmail = '';
+      let patientPhone = '';
+      try {
+        const ptResp = await req.drchrono.get(`/patients/${appt.patient}`);
+        const pt = ptResp.data;
+        patientName = `${pt.first_name} ${pt.last_name}`.trim() || patientName;
+        patientEmail = pt.email || '';
+        patientPhone = pt.cell_phone || pt.home_phone || '';
+      } catch (ptErr) {
+        console.warn('Could not fetch patient for email:', ptErr.message);
+      }
+
+      await sendBookingNotification({ patientName, date, time, email: patientEmail, phone: patientPhone });
     } catch (emailErr) {
       console.warn('Booking notification email failed:', emailErr.message);
     }
