@@ -1,5 +1,6 @@
 const express = require('express');
 const { drchronoAuth } = require('../middleware/drchrono');
+const { sendBookingNotification } = require('../utils/email');
 
 const router = express.Router();
 
@@ -49,6 +50,22 @@ router.post('/', drchronoAuth, async (req, res) => {
       });
     } catch (patchErr) {
       console.warn('Could not patch telehealth fields:', patchErr.message);
+    }
+
+    // Send booking notification email to provider
+    try {
+      const d = new Date(appt.scheduled_time);
+      const date = d.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      const time = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
+      await sendBookingNotification({
+        patientName: req.body._patientName || `Patient #${appt.patient}`,
+        date,
+        time,
+        email: req.body._patientEmail || '',
+        phone: req.body._patientPhone || '',
+      });
+    } catch (emailErr) {
+      console.warn('Booking notification email failed:', emailErr.message);
     }
 
     res.status(201).json(appt);
