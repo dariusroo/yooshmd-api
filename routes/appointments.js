@@ -39,7 +39,19 @@ router.get('/:id', drchronoAuth, async (req, res) => {
 router.post('/', drchronoAuth, async (req, res) => {
   try {
     const response = await req.drchrono.post('/appointments', req.body);
-    res.status(201).json(response.data);
+    const appt = response.data;
+
+    // Immediately PATCH to set telehealth fields after creation
+    try {
+      await req.drchrono.patch(`/appointments/${appt.id}`, {
+        is_telehealth: true,
+        is_virtual_base: true,
+      });
+    } catch (patchErr) {
+      console.warn('Could not patch telehealth fields:', patchErr.message);
+    }
+
+    res.status(201).json(appt);
   } catch (err) {
     const status = err.response?.status || 500;
     res.status(status).json({ error: err.response?.data || err.message });
