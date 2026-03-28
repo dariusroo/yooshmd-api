@@ -29,7 +29,7 @@ async function sendBookingNotification({ patientName, date, time, email, phone }
           <tr><td style="padding:8px 0;color:#7D4E4E;font-size:12px;text-transform:uppercase;font-weight:600;">Phone</td><td style="padding:8px 0;font-size:14px;">${phone || '—'}</td></tr>
         </table>
         <p style="margin-top:24px;font-size:13px;color:#7D4E4E;">
-          <a href="https://www.drchrono.com/login" style="color:#4A0E0E;font-weight:600;">Log into DrChrono</a> to switch to a video visit.
+          <a href="https://app.drchrono.com/accounts/login/" style="color:#4A0E0E;font-weight:600;">Log into DrChrono</a> to switch to a video visit.
         </p>
       </div>
     `,
